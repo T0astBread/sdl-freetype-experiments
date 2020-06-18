@@ -146,14 +146,10 @@ func main() {
 			//C.int(glyph_bitmap.rows),
 			C.int(glyph_slot.metrics.width),
 			C.int(glyph_slot.metrics.height),
-			//32, glyph_bitmap.pitch,
-			// C.uint(0x000000ff),
-			// C.uint(0x0000ff00),
-			// C.uint(0x00ff0000),
-			8, glyph_bitmap.pitch,
-			C.uint(0),
-			C.uint(0),
-			C.uint(0),
+			32, C.int(glyph_bitmap.pitch),
+			C.uint(0x000000ff),
+			C.uint(0x0000ff00),
+			C.uint(0x00ff0000),
 			C.uint(0xff000000))
 		if glyph_surf_ptr == nil {
 			sdl_panic("SDL_CreateRGBSurfaceFrom(glyph_bitmap)", C.SDL_GetError())
@@ -171,9 +167,11 @@ func main() {
 
 		sdl_glyph_dest_rect := C.SDL_Rect {
 			C.int(x), C.int(y),
-			C.int(glyph_slot.metrics.width), C.int(glyph_slot.metrics.height) }
+			C.int(glyph_bitmap.width), C.int(glyph_bitmap.rows) }
+			//C.int(glyph_slot.metrics.width), C.int(glyph_slot.metrics.height) }
 			//0, 0}
 		fmt.Println(sdl_glyph_dest_rect)
+		C.SDL_FillRect(win_surf_ptr, nil, C.SDL_MapRGB(win_surf_ptr.format, 100, 0, 100))
 		C.SDL_BlitSurface(glyph_surf_ptr, nil, win_surf_ptr, &sdl_glyph_dest_rect)
 
 		C.SDL_FreeSurface(glyph_surf_ptr)
@@ -181,7 +179,6 @@ func main() {
 		cursor_x += int(x_advance)
 		cursor_y += int(y_advance)
 	}
-
 	
 	running := true
 	for running == true {
