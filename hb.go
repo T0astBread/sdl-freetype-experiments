@@ -62,8 +62,6 @@ func main() {
 		panic(fmt.Sprintf("FT_New_Face failed:", err))
 	}
 	defer C.FT_Done_Face(ft_face)
-	
-	C.FT_Set_Char_Size(ft_face, 0, 24, 72, 72)
 
 
 	hb_buffer_ptr := C.hb_buffer_create()
@@ -95,6 +93,18 @@ func main() {
 	C.hb_ft_font_set_funcs(hb_font_ptr)
 	//font_load_flags := C.hb_ft_font_get_load_flags(hb_font_ptr)
 
+
+	display_index := C.SDL_GetWindowDisplayIndex(win_ptr)
+	var hdpi, vdpi C.float
+	C.SDL_GetDisplayDPI(display_index, nil, &hdpi, &vdpi)
+	fmt.Println("HDPI:", hdpi, "VDPI:", vdpi)
+	
+	C.FT_Set_Char_Size(ft_face,
+		0, 24*64, // char width, height in 1/64th points
+		C.uint(hdpi), C.uint(vdpi))
+	//C.FT_Set_Pixel_Sizes(ft_face, 70, 70)
+	C.hb_ft_font_changed(hb_font_ptr)
+	
 
 	C.hb_shape(hb_font_ptr, hb_buffer_ptr, nil, 0)
 	var glyph_count C.uint
