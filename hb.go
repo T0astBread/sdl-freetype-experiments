@@ -135,11 +135,11 @@ func main() {
 		glyph_id := gi.codepoint
 		//fmt.Println(i, ":", glyph_id)
 		x_offset := float32(gp.x_offset) / 64.0
-		y_offset := float32(gp.y_offset) / 64.0
+		//y_offset := float32(gp.y_offset) / 64.0
+		//y_offset := 0
 		x_advance := float32(gp.x_advance) / 64.0
-		y_advance := float32(gp.y_advance) / 64.0
-		x := cursor_x + int(x_offset)
-		y := cursor_y + int(y_offset)
+		//y_advance := float32(gp.y_advance) / 64.0
+		y_advance := 0
 
 		if err := C.FT_Load_Glyph(ft_face, glyph_id, font_load_flags | C.FT_LOAD_RENDER); err != 0 {
 			//panic(fmt.Sprintf("FT_Load_Glyph failed:", err))
@@ -157,15 +157,20 @@ func main() {
 
 		var glyph_w, glyph_h C.int
 		C.SDL_QueryTexture(glyph_texture, nil, nil, &glyph_w, &glyph_h)
-		fmt.Println(glyph_w, glyph_h)
-		glyph_rect := C.SDL_Rect { C.int(x + i * 15), C.int(y), glyph_w, glyph_h }
+
+		x := cursor_x + int(x_offset)
+		//y := cursor_y + int(y_offset)
+		y:= 50 - glyph_h
+		
+		fmt.Println("Glyph dimen:", glyph_w, glyph_h)
+		glyph_rect := C.SDL_Rect { C.int(x), C.int(y), glyph_w, glyph_h }
 		
 		C.SDL_SetTextureBlendMode(glyph_texture, C.SDL_BLENDMODE_BLEND)
 		C.SDL_RenderCopy(renderer_ptr, glyph_texture, nil, &glyph_rect)
 
 		C.SDL_DestroyTexture(glyph_texture)
 
-		cursor_x += int(x_advance)
+		cursor_x += int(x_advance) + int(glyph_w)
 		cursor_y += int(y_advance)
 	}
 
