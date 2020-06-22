@@ -165,9 +165,12 @@ func main() {
 		y_advance := float32(gp.y_advance) / 64.0
 		//y_advance := 0
 
-		var load_flags C.int =
-			C.FT_LOAD_DEFAULT |
-			C.FT_LOAD_COLOR
+		var load_flags C.int = C.FT_LOAD_DEFAULT
+		if ft_has_color(ft_face) {
+			load_flags |= C.FT_LOAD_COLOR
+		} else {
+			load_flags |= C.FT_LOAD_RENDER
+		}
 		if err := C.FT_Load_Glyph(ft_face, glyph_id, load_flags); err != 0 {
 			//panic(fmt.Sprintf("FT_Load_Glyph failed:", err))
 			fmt.Println(i, "FT_Load_Glyph failed:", err)
