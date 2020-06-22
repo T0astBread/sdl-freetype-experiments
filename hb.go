@@ -7,9 +7,14 @@ package main
 #include <SDL.h>
 #include <hb.h>
 #include <hb-ft.h>
+#include <freetype/freetype.h>
 
 SDL_EventType sdl_event_type(SDL_Event* evt) {
 	return evt->type;
+}
+
+int ft_has_color(FT_Face ft_face) {
+	return FT_HAS_COLOR(ft_face);
 }
 */
 import "C"
@@ -53,9 +58,9 @@ func main() {
 	defer C.FT_Done_FreeType(ft_lib)
 
 	//font_path_str := C.CString("/usr/share/fonts/opentype/firacode/FiraCode-Regular.otf")
-	//font_path_str := C.CString("/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf")
+	font_path_str := C.CString("/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf")
 	//font_path_str := C.CString("/usr/share/fonts/opentype/freefont/FreeSans.otf")
-	font_path_str := C.CString("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+	//font_path_str := C.CString("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
 	//font_path_str := C.CString("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf")
 	defer C.free(unsafe.Pointer(font_path_str))
 	
@@ -67,6 +72,8 @@ func main() {
 	}
 	defer C.FT_Done_Face(ft_face)
 
+	fmt.Println("Has color:", ft_has_color(ft_face))
+
 
 	hb_buffer_ptr := C.hb_buffer_create()
 	if hb_buffer_ptr == nil {
@@ -75,15 +82,17 @@ func main() {
 	defer C.hb_buffer_destroy(hb_buffer_ptr)
 
 
-	//C.hb_buffer_set_direction(hb_buffer_ptr, C.HB_DIRECTION_LTR)
-	//C.hb_buffer_set_script(hb_buffer_ptr, C.HB_SCRIPT_LATIN)
+	C.hb_buffer_set_direction(hb_buffer_ptr, C.HB_DIRECTION_LTR)
+	C.hb_buffer_set_script(hb_buffer_ptr, C.HB_SCRIPT_LATIN)
 	//C.hb_buffer_set_script(hb_buffer_ptr, C.HB_SCRIPT_MANDAIC)
-	C.hb_buffer_set_direction(hb_buffer_ptr, C.HB_DIRECTION_RTL)
-	C.hb_buffer_set_script(hb_buffer_ptr, C.HB_SCRIPT_ARABIC)
+	//C.hb_buffer_set_direction(hb_buffer_ptr, C.HB_DIRECTION_RTL)
+	//C.hb_buffer_set_script(hb_buffer_ptr, C.HB_SCRIPT_ARABIC)
 	
 	//str := "😬 this is => my text\nöèẁ²"
-	str := "هذه هي بعض النصوص العربي"
+	//str := "هذه هي بعض النصوص العربي"
 	//str := "這是一些中文"
+	//str := "😬😬😬😬😬😬😬😬😬😬😬😬😬"
+	str := "🏳️‍🌈🏳️‍🌈🥳🥳"
 	c_str := C.CString(str)
 	defer C.free(unsafe.Pointer(c_str))
 	c_len := C.int(len(str))
@@ -100,18 +109,25 @@ func main() {
 	}
 	defer C.hb_font_destroy(hb_font_ptr)
 	//C.hb_ft_font_set_funcs(hb_font_ptr)
-	font_load_flags := C.hb_ft_font_get_load_flags(hb_font_ptr)
+	//font_load_flags := C.hb_ft_font_get_load_flags(hb_font_ptr)
 
 
 	display_index := C.SDL_GetWindowDisplayIndex(win_ptr)
 	var hdpi, vdpi C.float
 	C.SDL_GetDisplayDPI(display_index, nil, &hdpi, &vdpi)
 	fmt.Println("HDPI:", hdpi, "VDPI:", vdpi)
-	
-	C.FT_Set_Char_Size(ft_face,
-		0, 24*64, // char width, height in 1/64th points
-		C.uint(hdpi), C.uint(vdpi))
-	//C.FT_Set_Pixel_Sizes(ft_face, 70, 70)
+
+	if ft_has_color(ft_face) {
+		C.FT_Select_Size(ft_face, 0)
+	} else {
+		if err := C.FT_Set_Char_Size(ft_face,
+			0, 24*64, // char width, height in 1/64th points
+			C.uint(hdpi), C.uint(vdpi));
+		err != 0 {
+			panic(fmt.Sprintf("FT_Set_Char_Size failed:", err))
+		}
+		//C.FT_Set_Pixel_Sizes(ft_face, 128, 0)
+	}
 	C.hb_ft_font_changed(hb_font_ptr)
 	
 
@@ -141,7 +157,7 @@ func main() {
 		gp := glyph_position_arr[i]
 		
 		glyph_id := gi.codepoint
-		//fmt.Println(i, ":", glyph_id)
+		fmt.Println(i, ":", glyph_id)
 		x_offset := float32(gp.x_offset) / 64.0
 		y_offset := float32(gp.y_offset) / 64.0
 		//y_offset := 0
@@ -149,7 +165,10 @@ func main() {
 		y_advance := float32(gp.y_advance) / 64.0
 		//y_advance := 0
 
-		if err := C.FT_Load_Glyph(ft_face, glyph_id, font_load_flags | C.FT_LOAD_RENDER); err != 0 {
+		var load_flags C.int =
+			C.FT_LOAD_DEFAULT |
+			C.FT_LOAD_COLOR
+		if err := C.FT_Load_Glyph(ft_face, glyph_id, load_flags); err != 0 {
 			//panic(fmt.Sprintf("FT_Load_Glyph failed:", err))
 			fmt.Println(i, "FT_Load_Glyph failed:", err)
 			continue
@@ -157,7 +176,8 @@ func main() {
 		glyph_slot := ft_face.glyph
 		//C.FT_Render_Glyph(glyph_slot, C.FT_RENDER_MODE_NORMAL)
 		glyph_bitmap := glyph_slot.bitmap
-		glyph_texture := SDLTextureFromFTBitmap(renderer_ptr, glyph_bitmap, C.SDL_Color { 200, 200, 200, 255 })
+		//glyph_texture := SDLTextureFromFTBitmap(renderer_ptr, glyph_bitmap, C.SDL_Color { 200, 200, 200, 255 })
+		glyph_texture := SDLTextureFromFTColorBitmap(renderer_ptr, glyph_bitmap)
 		if glyph_texture == nil {
 			println("nil")
 			//continue
@@ -171,7 +191,7 @@ func main() {
 		y:= C.int(cursor_y) + C.int(y_offset) - glyph_slot.bitmap_top
 		
 		//fmt.Println("Glyph dimen:", glyph_w, glyph_h)
-		fmt.Println("Glyph offset:", x, y)
+		//fmt.Println("Glyph offset:", x, y)
 		glyph_rect := C.SDL_Rect { C.int(x), C.int(y), glyph_w, glyph_h }
 		
 		C.SDL_SetTextureBlendMode(glyph_texture, C.SDL_BLENDMODE_BLEND)
@@ -185,11 +205,11 @@ func main() {
 		cursor_x += cursor_x_adv
 		cursor_y -= int(y_advance)
 
-		fmt.Println("Cursor +=", cursor_x_adv)
+		//fmt.Println("Cursor +=", cursor_x_adv)
 	}
 
 	C.SDL_RenderPresent(renderer_ptr)
-	
+
 	running := true
 	for running == true {
 		var event C.SDL_Event
@@ -203,6 +223,70 @@ func main() {
 		//C.SDL_UpdateWindowSurface(win_ptr)
 		C.SDL_Delay(16)
 	}
+}
+
+func SDLTextureFromFTColorBitmap(
+	renderer *C.SDL_Renderer,
+	bitmap C.FT_Bitmap,
+) *C.SDL_Texture {
+	w, h := int(bitmap.width), int(bitmap.rows)
+	_w, _h := C.int(w), C.int(h)
+
+	if w == 0 || h == 0 {
+		return nil
+	}
+	
+	texture := C.SDL_CreateTexture(renderer,
+		C.SDL_PIXELFORMAT_RGBA8888,
+		C.SDL_TEXTUREACCESS_STREAMING,
+		_w, _h)
+		
+	if texture == nil {
+		sdl_panic("SDL_CreateTexture", C.SDL_GetError())
+	}
+
+	var buffer unsafe.Pointer
+	var pitch C.int
+	C.SDL_LockTexture(texture, nil, &buffer, &pitch)
+	defer C.SDL_UnlockTexture(texture)
+
+	pixelFormat := C.SDL_AllocFormat(C.SDL_PIXELFORMAT_RGBA8888)
+	if pixelFormat == nil {
+		sdl_panic("SDL_AllocFormat", C.SDL_GetError())
+	}
+	defer C.SDL_FreeFormat(pixelFormat)
+
+	numBytes := _w * _h
+	source := C.GoBytes(unsafe.Pointer(bitmap.buffer), numBytes * 4)
+	//target := C.GoBytes(buffer, numBytes)
+	target := (*[1 << 28]C.uint)(unsafe.Pointer(buffer))[:numBytes:numBytes]
+
+	// for y := 0; y < h; y++ {
+		// for x := 0; x < w; x+=4 {
+			// idx := y * w + x
+			// b := source[idx]
+			// g := source[idx+1]
+			// r := source[idx+2]
+			// a := source[idx+3]
+			// pixelValue := C.SDL_MapRGBA(pixelFormat, C.uchar(r), C.uchar(g),C.uchar(b), C.uchar(a))
+			// //target[idx] = byte(pixelValue)
+			// target[idx/4] = pixelValue
+		// }
+	// }
+	_numBytes := int(numBytes)
+	for i := 0; i < _numBytes; i++ {
+		idx := i * 4
+		
+		b := source[idx]
+		g := source[idx+1]
+		r := source[idx+2]
+		a := source[idx+3]
+		pixelValue := C.SDL_MapRGBA(pixelFormat, C.uchar(r), C.uchar(g),C.uchar(b), C.uchar(a))
+		//target[idx] = byte(pixelValue)
+		target[i] = pixelValue
+	}
+
+	return texture
 }
 
 func SDLTextureFromFTBitmap(
@@ -253,4 +337,8 @@ func SDLTextureFromFTBitmap(
 	}
 
 	return texture
+}
+
+func ft_has_color(ft_face C.FT_Face) bool {
+	return C.ft_has_color(ft_face) != 0
 }
