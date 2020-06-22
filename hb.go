@@ -52,8 +52,11 @@ func main() {
 	}
 	defer C.FT_Done_FreeType(ft_lib)
 
-	font_path_str := C.CString("/usr/share/fonts/opentype/firacode/FiraCode-Regular.otf")
+	//font_path_str := C.CString("/usr/share/fonts/opentype/firacode/FiraCode-Regular.otf")
 	//font_path_str := C.CString("/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf")
+	//font_path_str := C.CString("/usr/share/fonts/opentype/freefont/FreeSans.otf")
+	font_path_str := C.CString("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+	//font_path_str := C.CString("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf")
 	defer C.free(unsafe.Pointer(font_path_str))
 	
 	var ft_face C.FT_Face
@@ -72,10 +75,15 @@ func main() {
 	defer C.hb_buffer_destroy(hb_buffer_ptr)
 
 
-	C.hb_buffer_set_direction(hb_buffer_ptr, C.HB_DIRECTION_LTR)
-	C.hb_buffer_set_script(hb_buffer_ptr, C.HB_SCRIPT_LATIN)
+	//C.hb_buffer_set_direction(hb_buffer_ptr, C.HB_DIRECTION_LTR)
+	//C.hb_buffer_set_script(hb_buffer_ptr, C.HB_SCRIPT_LATIN)
+	//C.hb_buffer_set_script(hb_buffer_ptr, C.HB_SCRIPT_MANDAIC)
+	C.hb_buffer_set_direction(hb_buffer_ptr, C.HB_DIRECTION_RTL)
+	C.hb_buffer_set_script(hb_buffer_ptr, C.HB_SCRIPT_ARABIC)
 	
-	str := "😬 this is => my text"
+	//str := "😬 this is => my text\nöèẁ²"
+	str := "هذه هي بعض النصوص العربي"
+	//str := "這是一些中文"
 	c_str := C.CString(str)
 	defer C.free(unsafe.Pointer(c_str))
 	c_len := C.int(len(str))
@@ -91,7 +99,7 @@ func main() {
 		panic("hb_ft_font_create failed")
 	}
 	defer C.hb_font_destroy(hb_font_ptr)
-	C.hb_ft_font_set_funcs(hb_font_ptr)
+	//C.hb_ft_font_set_funcs(hb_font_ptr)
 	font_load_flags := C.hb_ft_font_get_load_flags(hb_font_ptr)
 
 
@@ -135,11 +143,11 @@ func main() {
 		glyph_id := gi.codepoint
 		//fmt.Println(i, ":", glyph_id)
 		x_offset := float32(gp.x_offset) / 64.0
-		//y_offset := float32(gp.y_offset) / 64.0
+		y_offset := float32(gp.y_offset) / 64.0
 		//y_offset := 0
 		x_advance := float32(gp.x_advance) / 64.0
-		//y_advance := float32(gp.y_advance) / 64.0
-		y_advance := 0
+		y_advance := float32(gp.y_advance) / 64.0
+		//y_advance := 0
 
 		if err := C.FT_Load_Glyph(ft_face, glyph_id, font_load_flags | C.FT_LOAD_RENDER); err != 0 {
 			//panic(fmt.Sprintf("FT_Load_Glyph failed:", err))
@@ -152,26 +160,32 @@ func main() {
 		glyph_texture := SDLTextureFromFTBitmap(renderer_ptr, glyph_bitmap, C.SDL_Color { 200, 200, 200, 255 })
 		if glyph_texture == nil {
 			println("nil")
-			continue
+			//continue
 		}
 
-		var glyph_w, glyph_h C.int
-		C.SDL_QueryTexture(glyph_texture, nil, nil, &glyph_w, &glyph_h)
+		var glyph_w, glyph_h C.int = C.int(glyph_bitmap.width), C.int(glyph_bitmap.rows)
+		//C.SDL_QueryTexture(glyph_texture, nil, nil, &glyph_w, &glyph_h)
 
-		x := cursor_x + int(x_offset)
+		x := cursor_x + int(x_offset) + int(glyph_slot.bitmap_left)
 		//y := cursor_y + int(y_offset)
-		y:= 50 - glyph_h
+		y:= C.int(cursor_y) + C.int(y_offset) - glyph_slot.bitmap_top
 		
-		fmt.Println("Glyph dimen:", glyph_w, glyph_h)
+		//fmt.Println("Glyph dimen:", glyph_w, glyph_h)
+		fmt.Println("Glyph offset:", x, y)
 		glyph_rect := C.SDL_Rect { C.int(x), C.int(y), glyph_w, glyph_h }
 		
 		C.SDL_SetTextureBlendMode(glyph_texture, C.SDL_BLENDMODE_BLEND)
+		// C.SDL_SetRenderDrawColor(renderer_ptr, C.uchar(50), C.uchar(0), C.uchar(25), C.uchar(255))
+		// C.SDL_RenderFillRect(renderer_ptr, &glyph_rect);
 		C.SDL_RenderCopy(renderer_ptr, glyph_texture, nil, &glyph_rect)
 
 		C.SDL_DestroyTexture(glyph_texture)
 
-		cursor_x += int(x_advance) + int(glyph_w)
-		cursor_y += int(y_advance)
+		cursor_x_adv := int(x_advance)// + int(glyph_w) + int(glyph_slot.bitmap_left)
+		cursor_x += cursor_x_adv
+		cursor_y -= int(y_advance)
+
+		fmt.Println("Cursor +=", cursor_x_adv)
 	}
 
 	C.SDL_RenderPresent(renderer_ptr)
